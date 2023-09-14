@@ -43,6 +43,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 )
 
@@ -430,11 +431,11 @@ func (c *Client) logger() interface{} {
 		}
 
 		switch c.Logger.(type) {
-		case Logger, LeveledLogger:
+		case Logger, LeveledLogger, logr.Logger:
 			// ok
 		default:
 			// This should happen in dev when they are setting Logger and work on code, not in prod.
-			panic(fmt.Sprintf("invalid logger type passed, must be Logger or LeveledLogger, was %T", c.Logger))
+			panic(fmt.Sprintf("invalid logger type passed, must be Logger, LeveledLogger, or logr.Logger , was %T", c.Logger))
 		}
 	})
 
@@ -593,6 +594,8 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 
 	if logger != nil {
 		switch v := logger.(type) {
+		case logr.Logger:
+			v.V(0).Info("performing request", "method", req.Method, "url", req.URL)
 		case LeveledLogger:
 			v.Debug("performing request", "method", req.Method, "url", req.URL)
 		case Logger:
@@ -650,6 +653,8 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 		}
 		if err != nil {
 			switch v := logger.(type) {
+			case logr.Logger:
+				v.Error(err, "request failed", "error", err, "method", req.Method, "url", req.URL)
 			case LeveledLogger:
 				v.Error("request failed", "error", err, "method", req.Method, "url", req.URL)
 			case Logger:
@@ -694,6 +699,8 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 				desc = fmt.Sprintf("%s (status: %d)", desc, resp.StatusCode)
 			}
 			switch v := logger.(type) {
+			case logr.Logger:
+				v.V(0).Info("retrying request", "request", desc, "timeout", wait, "remaining", remain)
 			case LeveledLogger:
 				v.Debug("retrying request", "request", desc, "timeout", wait, "remaining", remain)
 			case Logger:
@@ -759,6 +766,8 @@ func (c *Client) drainBody(body io.ReadCloser) {
 	if err != nil {
 		if c.logger() != nil {
 			switch v := c.logger().(type) {
+			case logr.Logger:
+				v.Error(err, "error reading response body")
 			case LeveledLogger:
 				v.Error("error reading response body", "error", err)
 			case Logger:
