@@ -43,6 +43,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ggwhite/go-masker"
+
 	"github.com/go-logr/logr"
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 )
@@ -584,6 +586,7 @@ func PassthroughErrorHandler(resp *http.Response, err error, _ int) (*http.Respo
 
 // Do wraps calling an HTTP method with retries.
 func (c *Client) Do(req *Request) (*http.Response, error) {
+	m := masker.New()
 	c.clientInit.Do(func() {
 		if c.HTTPClient == nil {
 			c.HTTPClient = cleanhttp.DefaultPooledClient()
@@ -595,11 +598,11 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 	if logger != nil {
 		switch v := logger.(type) {
 		case logr.Logger:
-			v.V(0).Info("performing request", "method", req.Method, "url", req.URL)
+			v.V(0).Info("performing request", "method", req.Method, "url", m.URL(req.URL.String()))
 		case LeveledLogger:
-			v.Debug("performing request", "method", req.Method, "url", req.URL)
+			v.Debug("performing request", "method", req.Method, "url", m.URL(req.URL.String()))
 		case Logger:
-			v.Printf("[DEBUG] %s %s", req.Method, req.URL)
+			v.Printf("[DEBUG] %s %s", req.Method, m.URL(req.URL.String()))
 		}
 	}
 
@@ -654,11 +657,11 @@ func (c *Client) Do(req *Request) (*http.Response, error) {
 		if err != nil {
 			switch v := logger.(type) {
 			case logr.Logger:
-				v.Error(err, "request failed", "error", err, "method", req.Method, "url", req.URL)
+				v.Error(err, "request failed", "error", err, "method", req.Method, "url", m.URL(req.URL.String()))
 			case LeveledLogger:
-				v.Error("request failed", "error", err, "method", req.Method, "url", req.URL)
+				v.Error("request failed", "error", err, "method", req.Method, "url", m.URL(req.URL.String()))
 			case Logger:
-				v.Printf("[ERR] %s %s request failed: %v", req.Method, req.URL, err)
+				v.Printf("[ERR] %s %s request failed: %v", req.Method, m.URL(req.URL.String()), err)
 			}
 		} else {
 			// Call this here to maintain the behavior of logging all requests,
